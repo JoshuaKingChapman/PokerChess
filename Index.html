@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--Poker Chess v1.0.0 by JKC-->
+    <!--jkc@jkc.x10host.com-->
+    <meta charset="utf-8" />
+    <title>Poker Chess!</title>
+    <style>
+    	* { padding: 0; margin: 0; }
+    	canvas { background: #4e4; display: block; margin: 0 auto; }
+    </style>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="shortcut icon" type="image/png" href="/favicon-16x16.png"/>
+    <link rel="manifest" href="/site.webmanifest">
+</head>
+<body>
+
+<canvas id="mainCanvas" width="1000" height="600" onclick="clickHandler(this.onclick.arguments[0])" onmousemove="mouseMoveHandler(this.onmousemove.arguments[0])"</canvas>
+
+<script>
+
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+//                                  CLASS DEFINITIONS
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+class card{
+	
+    constructor(rank, suit, backColor="blue", fourColor=true, faceUp=false){
+    	this.rank = rank;
+        this.suit = suit;
+        this.faceUp = faceUp;
+        this.backColor = backColor;
+        this.fourColor = fourColor;
+        this.width = 80;   //CHANGE THESE TWO VALUES ONLY AS NEEEDED FOR NEW PROJECTS
+        this.margin = 6;   //Max value  = width / 12 or pips will overlap for some ranks
+        this.height = this.width * 1.5;
+        this.header = this.height / 6;
+        this.pipSize = this.width / 4;
+        this.suits = ["Diamonds", "Clubs", "Hearts", "Spades"];
+        this.ranks = ["Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King", "Ace"];
+        this.colors = ["Blue", "Green", "Red", "Black"];
+    }
+
+    get fullName(){
+    	return String(this.rankName) + " of " + String(this.suitName);
+    }
+    
+    get rankName(){
+    	return this.ranks[this.rank];
+    }
+    
+    get shortRank(){
+    	return this.rank < 9 ? String(this.rank+2) : this.rankName.charAt(0);
+    }
+    
+    get suitName(){
+    	return this.suits[this.suit];
+    }
+
+    get suitColor(){
+        return this.fourColor ? this.colors[this.suit] : this.colors[this.suit % 2 + 2];
+    }
+
+    get pipMargin(){
+        let pipMargins = [6, 0, 0, 12];
+        return pipMargins[this.suit] > 0 ? this.pipSize / pipMargins[this.suit] : 0;
+    }
+    
+    draw(ctx, x, y){
+    	//Draw card background
+        ctx.beginPath();
+        ctx.moveTo(x+this.margin, y);
+        ctx.arcTo(x, y, x, y+this.margin, this.margin);
+        ctx.lineTo(x, y+this.height-this.margin);
+        ctx.arcTo(x, y+this.height, x+this.margin, y+this.height, this.margin);
+        ctx.lineTo(x+this.width-this.margin, y+this.height);
+        ctx.arcTo(x+this.width, y+this.height, x+this.width, y+this.height-this.margin, this.margin);
+        ctx.lineTo(x+this.width, y+this.margin);
+        ctx.arcTo(x+this.width, y, x+this.width-this.margin, y, this.margin);
+        ctx.closePath();
+        ctx.strokeStyle = "Black";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = "White";
+            ctx.fill();
+        if(! this.faceUp){	//Draw card back and return
+        	ctx.beginPath();
+            ctx.rect(x+this.margin, y+this.margin, this.width-this.margin*2, this.height-this.margin*2);
+            let grd=ctx.createLinearGradient(x+this.margin, y+this.margin, x+this.width-this.margin, y+this.height-this.margin);
+            let g = 0.0;
+            for(g=0.0; g<1; g+=0.2){
+                grd.addColorStop(g, this.backColor);
+                grd.addColorStop(g+0.1, 5*g % 2 ? "light"+this.backColor : "dark"+this.backColor);
+            }
+            grd.addColorStop(1, this.backColor);
+            ctx.fillStyle=grd;
+            ctx.fill();
+            return;
+        }
+        //Draw header
+        ctx.beginPath();
+        ctx.moveTo(x+this.margin, y+this.header+1.5*this.margin);
+        ctx.lineTo(x+this.width-this.margin, y+this.header+1.5*this.margin);
+        ctx.stroke();
+        ctx.font = String(this.header) + "pt Helvetica";
+        ctx.textAlign = "left";
+        ctx.fillStyle = this.suitColor;
+        ctx.fillText(this.shortRank, x+this.margin, y+this.margin+this.header);
+        this._drawPip(ctx, x+this.width+this.pipMargin-this.margin-this.header/2, y+this.margin+this.header, true);
+        //Draw body
+        switch(this.rankName){
+        	case "Ace":
+            	this._drawColumns(ctx, x, y, 1);
+                break;
+            case "Two":
+            	this._drawColumns(ctx, x, y, 2);
+                break;
+            case "Three":
+            	this._drawColumns(ctx, x, y, 3);
+                break;
+            case "Four":
+            	this._drawColumns(ctx, x, y, undefined, 2);
+                break;
+            case "Five":
+            	this._drawColumns(ctx, x, y, 1, 2);
+                break;
+            case "Six":
+            	this._drawColumns(ctx, x, y, undefined, 3);
+                break;
+            case "Seven":
+            	this._drawColumns(ctx, x, y, 3, 2);
+                break;
+            case "Eight":
+            	this._drawColumns(ctx, x, y, 2, 3);
+                break;
+            case "Nine":
+            	this._drawColumns(ctx, x, y, 1, 4);
+                break;
+            case "Ten":
+            	this._drawColumns(ctx, x, y, 2, 4);
+                break;
+            case "Jack":
+            case "Queen":
+            case "King":
+                //Draw face
+                let yBodyCenter = y + (this.height + this.header + this.margin) / 2;
+                let faceRadius = this.width / 2 - this.margin;
+                let edgeToSmile = this.margin + faceRadius / 4;
+                ctx.beginPath()
+                ctx.arc(x+this.width/2, yBodyCenter, faceRadius, 0, Math.PI*2);
+                ctx.fillStyle = "Yellow";
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(x+edgeToSmile, yBodyCenter+faceRadius/10);
+                ctx.bezierCurveTo(x+edgeToSmile, yBodyCenter+faceRadius, x+this.width-edgeToSmile, yBodyCenter+faceRadius, x+this.width-edgeToSmile, yBodyCenter+faceRadius/10);
+                ctx.quadraticCurveTo(x+this.margin+faceRadius, yBodyCenter+faceRadius/2, x+edgeToSmile, yBodyCenter+faceRadius/10)
+                ctx.stroke();
+                ctx.fillStyle = "White";
+                ctx.fill();
+                //Draw shades
+                let shadesWidth = (this.width - 2 * edgeToSmile) / 4; //QUARTER shades width
+                let eyeLine = yBodyCenter - faceRadius * 0.32;
+                let shadeHeight = faceRadius / 4;  //HALF of lens height; Auto-cycles Positive <-> Negative
+                let cpm = shadesWidth * 0.7;  //Control Point Margin
+                ctx.beginPath();
+                ctx.moveTo(x+edgeToSmile, eyeLine-shadeHeight);
+                for(let i=1;i<5;i++){
+                    ctx.bezierCurveTo(x+edgeToSmile+(i-1)*shadesWidth+cpm, eyeLine-shadeHeight,
+                                        x+edgeToSmile+i*shadesWidth-cpm, eyeLine+shadeHeight,
+                                        x+edgeToSmile+i*shadesWidth, eyeLine+shadeHeight);
+                    shadeHeight = -shadeHeight;
+                }
+                ctx.lineTo(x+this.width-edgeToSmile, eyeLine-shadeHeight-shadeHeight/2);
+                ctx.lineTo(x+edgeToSmile, eyeLine-shadeHeight-shadeHeight/2);
+                ctx.closePath();
+                ctx.fillStyle = this.suitColor;
+                ctx.fill();
+                break;
+        }
+    }
+    
+    //Distributes pips for non-face cards
+    //Only intended for internal use by draw
+    _drawColumns(ctx, x, y, center=0, outer=0){
+    	const m=this.margin;
+        const p=this.pipSize;
+        const xc=x+this.width/2;	//Central x coordinate
+        const xMin=x+m+p/2;	//Minimum x coordinate
+        const xMax=x+this.width-m-p/2;	//Maximum column x coordinate
+        const yMin=y+this.header+2*m+p;	//Minimum y coordinate
+        const yMax=y+this.height-m;	//Maximum y coordinate
+        const h=yMax-yMin;	//Vertical range
+        if(center>0){
+            for(let i=1;i<2*center;i+=2){
+            	this._drawPip(ctx, xc, yMin+i*h/(2*center)); 
+            }
+        }
+        if(outer>0){
+        	for(let i=0;i<outer;i++){
+            	let yVal=yMin+i*h/(outer-1);
+                this._drawPip(ctx, xMin, yVal);
+                this._drawPip(ctx, xMax, yVal);
+            }
+        }
+    }
+
+    //Draws one suit pip.
+    //Only intended for internal use by draw & _drawColumns
+    _drawPip(ctx, x, y, h=false){
+    let s = h ? this.header : this.pipSize;
+    	ctx.beginPath();
+        ctx.moveTo(this.suit % 2 ? x-s/5 : x, y);
+        switch(this.suitName){
+        	case "Diamonds":
+                ctx.lineTo(x-s/3, y-s/2);
+                ctx.lineTo(x, y-s);
+                ctx.lineTo(x+s/3, y-s/2);
+                break;
+            case "Clubs":
+                ctx.quadraticCurveTo(x-s/20, y-s/20, x-s/20, y-s/4);
+                ctx.arc(x-s/4, y-0.4*s, s/4, Math.PI*0.2, Math.PI*1.52);
+                ctx.arc(x, y-0.75*s, s/4, Math.PI*0.87, Math.PI*2.13);
+                ctx.arc(x+s/4, y-0.4*s, s/4, Math.PI*1.48, Math.PI*0.8);
+        		ctx.lineTo(x+s/20, y-s/4);
+                ctx.quadraticCurveTo(x+s/20, y-s/20, x+s/5, y);
+                break;
+            case "Hearts":
+                ctx.bezierCurveTo(x-0.6*s, y-s/2, x-s/2, y-s, x-s/4, y-s);
+                ctx.bezierCurveTo(x-s/15, y-s, x, y-0.83333*s, x, y-0.75*s);
+                ctx.bezierCurveTo(x, y-0.83333*s, x+s/15, y-s, x+s/4, y-s);
+                ctx.bezierCurveTo(x+s/2, y-s, x+0.6*s, y-s/2, x, y);
+                break;
+            case "Spades":
+                ctx.quadraticCurveTo(x-s/20, y-s/20, x-s/20, y-s/4);
+                ctx.bezierCurveTo(x-s/4, y, x-0.63333*s, y-s/4, x-s/4, y-0.66667*s);
+                ctx.bezierCurveTo(x-s/30, y-0.86667*s, x-0.016667*s, y-0.96667*s, x, y-s);
+                ctx.bezierCurveTo(x+0.016667*s, y-0.96667*s, x+s/30, y-0.86667*s, x+s/4, y-0.66667*s);
+                ctx.bezierCurveTo(x+0.63333*s, y-s/4, x+s/4, y, x+s/20, y-s/4);
+                ctx.quadraticCurveTo(x+s/20, y-s/20, x+s/5, y);
+                break;
+        }
+        ctx.closePath();
+        ctx.fillStyle = String(this.suitColor);
+        ctx.fill();
+    }
+
+    static hand(exactlyFiveCards = []){
+        if(exactlyFiveCards === undefined || exactlyFiveCards.length != 5){
+            return [0];
+        }
+        let fiveCards = exactlyFiveCards.slice(0);
+        fiveCards.sort(function(a, b){return card.CountRanks(fiveCards, true)[a.rank] != card.CountRanks(fiveCards, true)[b.rank] ? card.CountRanks(fiveCards, true)[b.rank] - card.CountRanks(fiveCards, true)[a.rank] : a.rank != b.rank ? b.rank - a.rank : b.suit - a.suit});
+        let handRanks = fiveCards.map(c => c.rank);
+        let handSuits = fiveCards.map(c => c.suit);
+        handSuits.sort(function(a, b){return b-a});
+        let flush = handSuits[0] == handSuits[4];
+        handSuits = fiveCards.map(c => c.suit);
+        let straight = true;
+        for(let i=1;i<4;i++){
+            if(handRanks[i] - handRanks[i + 1] != 1){
+                straight = false;
+                break;
+            }
+        }
+        let highCard = 0;
+        if(straight && ! (handRanks[0] - handRanks[1] == 1 || (handRanks[0] == 12 && handRanks[4] == 0))){
+            straight = false;
+        }else if (handRanks[0] == 12 && handRanks[1] == 3){
+            fiveCards.push(fiveCards.shift());
+            handRanks = fiveCards.map(c => c.rank);
+            handSuits = fiveCards.map(c => c.suit);
+        }
+        if(straight && flush){
+            return [9, handRanks[0], fiveCards[0].suit];
+        }else if(flush){
+            return [6].concat(handRanks, fiveCards[0].suit);
+        }else if(straight){
+            return [5, fiveCards[0].rank].concat(handSuits);
+        }
+        let rankObj = card.CountRanks(fiveCards, true);
+        switch(rankObj[handRanks[0]]){
+            case 4:
+                return [8, handRanks[0], handRanks[4], fiveCards[4].suit];
+            case 3:
+                return rankObj[handRanks[3]] == 2 ? [7, handRanks[0], handRanks[3]].concat(handSuits) : [4, handRanks[0], handRanks[3], handRanks[4]].concat(handSuits);
+            case 2:
+                return rankObj[handRanks[2]] == 2 ? [3, handRanks[0], handRanks[2], handRanks[4]].concat(handSuits) : [2, handRanks[0], handRanks[2], handRanks[3], handRanks[4]].concat(handSuits);
+            case 1:
+                return [1].concat(handRanks).concat(handSuits);
+        }
+    }
+
+    static winningHand(alllHands = [[]], rankSuits = false){
+        //Takes array of card.hand arrays and returns object describing winner
+        if(! (alllHands && alllHands.length && alllHands[0].length)){
+            return undefined;
+        }
+        let handNames = ["Invalid Hand", "High Card", "One Pair", "Two Pair", "Three of a Kind", "Straight", "Flush", "Full House", "Four of a Kind", "Straight Flush"];
+        let tieCutoffs = [1, 6, 5, 4, 4, 2, 6, 3, 3, 2];
+        let handArticles = ["an ", "a ", "", "", "", "a ", "a ", "a ", "", "a "];
+        let vowelCards = [false, false, false, false, false, false, true, false, false, false, false, false, true];
+        let winningSequence = [];
+        let retObj = {player: 0, basicName: handNames[alllHands[0][0]]};
+        for(let p=1;p<alllHands.length;p++){
+            if(alllHands[p][0] > alllHands[Number(retObj.player)][0]){
+                retObj = {player: p, basicName: handNames[alllHands[p][0]]};
+                winningSequence = [alllHands[p][0]];
+            }else if(alllHands[p][0] == alllHands[Number(retObj.player)][0]){
+                let handIndex = 0;
+                while(alllHands[p][handIndex] == alllHands[Number(retObj.player)][handIndex]){
+                    winningSequence.push(alllHands[p][handIndex]);
+                    if((rankSuits && handIndex == alllHands[p].length - 1) || handIndex == tieCutoffs[alllHands[p][0]]){
+                        retObj.tiePlayers = (retObj.tiePlayers || []) + [p];
+                        break;
+                    }
+                    handIndex++;
+                }
+                if(alllHands[p][handIndex] > alllHands[Number(retObj.player)][handIndex]){
+                    retObj.player = p;
+                    retObj.basicName = handNames[alllHands[p][0]]
+                }
+            }
+        }
+        let kickNum, rankBreak;
+        switch(winningSequence[0]){
+            case 1:     //High card
+                retObj.DescriptiveName = new card(alllHands[Number(retObj.player)][1], 0).rankName + " High";
+                rankBreak = 2;
+                break;
+            case 2:     //One pair
+                retObj.DescriptiveName = "a Pair of " + card._pluralName(alllHands[Number(retObj.player)][1]);
+                if(card._pluralName(alllHands[Number(retObj.player)][1]) != card._pluralName(alllHands[Number(retObj.player)][1], true)){
+                    retObj.slangName = "a Pair of " + card._pluralName(alllHands[Number(retObj.player)][1], true);
+                }
+                rankBreak = 2;
+                break;
+            case 3:     //Two pair
+                retObj.DescriptiveName = card._pluralName(alllHands[Number(retObj.player)][1]) + " Over " + card._pluralName(alllHands[Number(retObj.player)][2]);
+                if(card._pluralName(alllHands[Number(retObj.player)][1]) != card._pluralName(alllHands[Number(retObj.player)][1], true) || card._pluralName(alllHands[Number(retObj.player)][2]) != card._pluralName(alllHands[Number(retObj.player)][2], true)){
+                    retObj.slangName = card._pluralName(alllHands[Number(retObj.player)][1], true) + " and " + card._pluralName(alllHands[Number(retObj.player)][2], true);
+                }
+                if(alllHands[Number(retObj.player)][1] == 12 && alllHands[Number(retObj.player)][2] == 6){
+                    retObj.slangName = "the Dead Man's Hand";
+                }
+                rankBreak = 3;
+                break;
+            case 4:     //Three of a kind
+                retObj.DescriptiveName = "Three " + card._pluralName(alllHands[Number(retObj.player)][1]);
+                retObj.slangName = "Trip " + card._pluralName(alllHands[Number(retObj.player)][1], true);
+                rankBreak = 2;
+                break;
+            case 5:     //Straight
+                retObj.DescriptiveName = vowelCards[alllHands[Number(retObj.player)][0]] ? "an " : "a " + new card(alllHands[Number(retObj.player)][1], 0).rankName + " High Straight";
+                rankBreak = winningSequence.length; //No rank kickers for straights
+                if(alllHands[Number(retObj.player)][1] == 12){
+                    retObj.slangName = "Broadway";
+                }else if(alllHands[Number(retObj.player)][1] == 3){
+                    retObj.slangName = "the Wheel";
+                }
+                break;
+            case 6:     //Flush
+                retObj.DescriptiveName = vowelCards[alllHands[Number(retObj.player)][0]] ? "an " : "a " + new card(alllHands[Number(retObj.player)][1], 0).rankName + " High Flush";
+                rankBreak = 2;
+                let flushSlang = ["a Girl's Best Friend", "Puppy Feet", "Lots of Love", "Shovels"];
+                retObj.slangName = flushSlang[alllHands[Number(retObj.player)][6]];
+                break;
+            case 7:     //Full house
+                retObj.DescriptiveName = card._pluralName(alllHands[Number(retObj.player)][1]) + " Full of " + card._pluralName(alllHands[Number(retObj.player)][2]);
+                rankBreak = winningSequence.length; //No rank kickers for full houses
+                retObj.slangName = alllHands[Number(retObj.player)][1] == 12 ? "a Luxury Liner" : alllHands[Number(retObj.player)][1] == 0 ? "a Dinghy" : "a Boat";
+                break;
+            case 8:     //Four of a kind
+                retObj.DescriptiveName = "Four " + card._pluralName(alllHands[Number(retObj.player)][1]);
+                retObj.slangName = "Quad " + card._pluralName(alllHands[Number(retObj.player)][1], true);
+                rankBreak = 2;
+                break;
+            case 9:     //Straight flush
+                retObj.DescriptiveName = alllHands[Number(retObj.player)][1] == 12 ? "a Royal Flush" : vowelCards[alllHands[Number(retObj.player)][0]] ? "an " : "a " + new card(alllHands[Number(retObj.player)][1], 0).rank + " High Straight Flush";
+                rankBreak = winningSequence.length; //No rank kickers for straight flushes
+                break;
+        }
+        if(winningSequence.length > tieCutoffs[winningSequence[0]]){
+            kickNum = winningSequence.length - tieCutoffs[winningSequence[0]];
+            retObj.criticalDetail = new card(0, alllHands[Number(retObj.player)][alllHands[Number(retObj.player)].length - 1]).suitName + card._ordinalNum(kickNum) + (winningSequence[0] == 6 || winningSequence[0] == 9 ? "s" : " Kicker");
+        }else if(winningSequence.length > rankBreak){
+            kickNum = winningSequence.length - rankBreak;
+            retObj.criticalDetail = new card(alllHands[Number(retObj.player)][alllHands[Number(retObj.player)].length - 1], 0).rankName + card._ordinalNum(kickNum) + " Kicker";
+        }
+        retObj.allHandNames = alllHands.map(h => handArticles[h[0]] + handNames[h[0]]);
+        return retObj;
+    }
+
+    static pokerSort(){
+        return function(a, b){return card.CountRanks(fiveCards, true)[a.rank] != card.CountRanks(fiveCards, true)[b.rank] ? card.CountRanks(fiveCards, true)[b.rank] - card.CountRanks(fiveCards, true)[a.rank] : a.rank != b.rank ? b.rank - a.rank : b.suit - a.suit};
+    }
+
+    static CountRanks(cardArray, returnObject = false){
+    //Counts number of unique ranks in an array of cards (DEFAULT)
+    //If returnObject is true, returns object with KVP's for each rank and count
+    //Needed in class for sorting function
+        if(cardArray.length == 0){
+            return 0;
+        }
+        let countedRanks = {};
+        for(let i=0;i<cardArray.length;i++){
+            countedRanks[cardArray[i].rank] = (countedRanks[cardArray[i].rank] || 0) + 1;
+        }
+        return returnObject ? countedRanks : keys(countedRanks).length;
+    }
+
+    static _pluralName(cardRank, slang = false){
+        let slangTerms = {0: "Ducks", 6: "Snowmen", 9: "Fishhooks", 10: "Ladies", 11: "Cowboys", 12: "Rockets"};
+        return slang && slangTerms[cardRank] ? slangTerms[cardRank] : new card(cardRank, 0).rankName + (cardRank == 4 ? "es" : "s");
+    }
+
+    static _ordinalNum(int, skipFirst = true){
+        let words = ["", "First", "Second", "Third", "Fourth", "Fifth"];
+        return skipFirst && int == 1 ? "" : words[int];
+    }
+}
+
+class deck{
+	constructor(backColor="blue", fourColor=true, faceUp=false){
+        this.cards = [];
+        for(let s=0;s<4;s++){
+        	for(let r=0;r<13;r++){
+            	this.cards.push(new card(r,s, backColor, fourColor, faceUp));
+            }
+        }
+        /* Shuffles the deck.
+        Keeping shuffle functionality here prevents
+        complications arising from shuffling a
+        deck that has been dealt from already. */
+    	let newCards = [];
+        for(let c=0;c<52;c++){
+            newCards.push(this.cards.splice(Math.floor(Math.random() * this.cards.length), 1)[0]);
+        }
+        this.cards = newCards;
+    }
+    
+    deal(numCards=1){
+    	return this.cards.splice(0,numCards);
+    }
+}
+
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+//                                  DRAWING METHODS
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+var cvs = document.getElementById("mainCanvas");
+var ctx = cvs.getContext("2d");
+var tutorialPage = 1;
+const cardSpread = 35;  //Vertical offset for columned hands
+
+function pickUp52(){    //Draws a randomly scattered deck for menu backgrounds
+    ctx.clearRect(0, 0, 1000, 600)
+    gameDeck = new deck(gamePrefs.backColor, gamePrefs.fourColor, true);
+    for(let i=0;i<10;i++){
+        gameDeck.cards[Math.floor(Math.random() * 52)].faceUp = false;
+    }
+    for(let i=0;i<52;i++){
+        gameDeck.cards[i].draw(ctx, Math.floor(Math.random() * 920), Math.floor(Math.random() * 480));
+    }
+    if(gamePrefs.vegas){
+        for(let i=0;i<5;i++){
+	        drawChip(Math.floor(Math.random()*950+25), Math.floor(Math.random()*550+25), i);
+        }
+    }
+}
+
+function titleSquare(){ //Background modifier shared by Home & Settings screens
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.fillRect(250, 50, 500, 500);
+    ctx.rotate(Math.PI / -6);
+    ctx.font = "75pt Comic Sans MS";
+    let grd = ctx.createLinearGradient(250, 50, 650, 250);
+    grd.addColorStop(0, "black");
+    grd.addColorStop("0.3", "magenta");
+    grd.addColorStop("0.5", "blue");
+    grd.addColorStop("0.6", "green");
+    grd.addColorStop("0.8", "yellow");
+    grd.addColorStop(1, "red");
+    ctx.fillStyle = grd;
+    ctx.textAlign = "left";
+    ctx.fillText("Poker", 130, 360);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillText("Chess", 500, 80);
+    ctx.rotate(Math.PI / -12);
+}
+
+function drawHome(){
+    pickUp52();
+    titleSquare();
+    let btnColors = ["Green", "Blue", "Red"];
+    let btnLabels = ["New Game", "Settings", "How to Play"];
+    ctx.font = "25pt Comic Sans MS";
+    ctx.textAlign = "center";
+    for(let i=0;i<3;i++){
+        ctx.fillStyle = btnColors[i];
+        ctx.fillRect(350, 75*i+300, 300, 50);
+        ctx.fillStyle = "Yellow";
+        ctx.fillText(btnLabels[i], 500, 75*i+335);
+    }
+    activeScreen = "Home";
+}
+
+function drawSettings(){
+    pickUp52();
+    titleSquare();
+    let btnColors = ["Green", "Blue", "Red"];
+    let btnLabels = [(gamePrefs.fourColor ? "4" : "2") + " Suit Colors",
+                    gamePrefs.backColor + " Deck",
+                    (gamePrefs.vegas ? "Vegas" : "Classic") + " Scoring"];
+    ctx.font = "25pt Comic Sans MS";
+    ctx.textAlign = "center";
+    for(let i=0;i<3;i++){
+        ctx.fillStyle = btnColors[i];
+        ctx.fillRect(350, 75*i+300, 300, 50);
+        ctx.fillStyle = "Yellow";
+        ctx.fillText(btnLabels[i], 500, 75*i+335);
+    }
+    //Draw back arrow
+    ctx.beginPath();
+    ctx.moveTo(280, 505);
+    ctx.lineTo(280, 515);
+    ctx.lineTo(320, 515);
+    ctx.lineTo(320, 535);
+    ctx.lineTo(280, 535);
+    ctx.lineTo(280, 545);
+    ctx.lineTo(255, 525);
+    ctx.closePath();
+    ctx.fillStyle = "Black";
+    ctx.fill();
+    activeScreen = "Settings";
+}
+
+function drawScreen(){
+    const gameWidth = 1000;
+    const gameHeight = 600;
+    ctx.clearRect(0, 0, gameWidth, gameHeight);
+
+    //DRAW BACKGROUND ELEMENTS
+
+    //Columned hands grid
+    for(let i=0;i<3;i++){
+        ctx.beginPath();
+        ctx.moveTo(i*100+110, 20);
+        ctx.lineTo(i*100+110, gameHeight-20);
+        ctx.strokeStyle = "#CD0";
+        ctx.lineWidth = 5;
+        ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(20, 300);
+    ctx.lineTo(420, 300);
+    ctx.moveTo(420, 160);
+    ctx.lineTo(420, 440);
+    ctx.stroke();
+    //Burn/Deal arches
+    ctx.beginPath();
+    ctx.moveTo(450, 190);
+    ctx.lineTo(450, 360);
+    ctx.arcTo(450, 410, 500, 410, 50)
+    ctx.lineTo(750, 410);
+    ctx.arcTo(800, 410, 800, 360, 50);
+    ctx.lineTo(800, 190);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(630, 410);
+    ctx.lineTo(630, 240);
+    ctx.arcTo(630, 190, 680, 190, 50);
+    ctx.lineTo(930, 190);
+    ctx.arcTo(980, 190, 980, 240, 50);
+    ctx.lineTo(980, 410);
+    ctx.stroke();
+    //Secret hand brackets
+    for(let i=0;i<2;i++){
+        ctx.beginPath();
+        ctx.moveTo(440, i*440+20);
+        ctx.arcTo(420, i*440+20, 420, i*440+40, 20);
+        ctx.lineTo(420, i*440+120);
+        ctx.arcTo(420, i*440+140, 440, i*440+140, 20);
+        ctx.stroke();
+    }
+    //Burn/Deal rectangles
+    for(let i=0;i<3;i++){
+        ctx.strokeRect(i*165+515, 245, 70, 110);
+    }
+    //Burn/Deal text
+    ctx.textAlign = "center";
+    ctx.font = "bold italic 25pt Times New Roman";
+    ctx.fillStyle = "#CD0";
+    for(let i=0;i<2;i++){
+        ctx.fillText("Burn", i*330+550, i*170+225);
+    }
+    ctx.fillText("Card", 715, 225);
+    ctx.fillText("Deck", 715, 395);
+    //Hand numbering
+    ctx.font = "bolder italic 70pt Times New Roman";
+    for(let i=1;i<5;i++){
+        ctx.fillText(String(i), i*100-40, 275);
+        ctx.fillText(String(i), i*100-40, 395);
+    }
+    ctx.fillText("5", 490, 110);
+    ctx.fillText("5", 490, 550);
+    //Burn X's
+    ctx.strokeStyle = "#D80";
+    for(let i=0;i<2;i++){
+        ctx.beginPath();
+        ctx.moveTo(i*330+525, 260);
+        ctx.lineTo(i*330+575, 340);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(i*330+525, 340);
+        ctx.lineTo(i*330+575, 260);
+        ctx.stroke();
+    }
+    //Draw Chips
+    if(gamePrefs.vegas){
+        for(let i=0;i<4;i++){
+	        drawChip(i*100+60, 300, i);
+        }
+        drawChip(420, 520, 4)
+    }
+
+    //DRAW CARDS
+
+    //Loop through head-to-head columns
+    for(let h=0;h<4;h++){
+        drawColumn(h*100+20, gameHeight/2+20, playerCards[h]);
+        if(computerCards[h].length > 0){
+            drawColumn(h*100+20, gameHeight/2-140-cardSpread*(computerCards[h].length-1), computerCards[h]);
+        }
+    }
+    //Draw "secret" hands
+    drawRow(gameHeight-140, playerCards[4]);
+    drawRow(20, computerCards[4]);
+    //Draw burn cards
+    drawColumn(840, 240, playerCards[5]);
+    drawColumn(510, 240, computerCards[5]);
+    //Draw deck
+    if (gameDeck.cards.length > 0){
+        gameDeck.cards[0].draw(ctx, 675, gameHeight/2-60);
+    }
+}
+
+function drawColumn(x, y, cards){   //For drawing vertical hands, including all head-to-head columns and burn cards
+    if(cards === undefined || cards.length ==0){
+        return;
+    }
+    for(let c=0;c<cards.length;c++){
+        cards[c].draw(ctx, x, y+c*cardSpread);
+    }
+}
+
+function drawRow(y, cards){ //For drawing the horizontal dynamic "secret" hands only
+    if(cards === undefined || cards.length == 0){
+        return;
+    }else if(cards.length == 1){
+        cards[0].draw(ctx, leftEdge, y);
+        return;
+    }
+    for(let c=0;c<cards.length;c++){
+        cards[c].draw(ctx, c*450/(cards.length-1)+450, y);
+    }
+}
+function drawTutorial(){
+    let textLines = [];
+    switch(tutorialPage++){
+        case 1:
+            gameDeck = new deck(gamePrefs.backColor);
+            drawScreen();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.fillRect(10, 10, 980, 580);
+            ctx.fillStyle = "Black";
+            ctx.textAlign = "left";
+            ctx.font = "20pt Arial";
+            textLines = ["Poker Chess is a game in which two players split an entire deck of cards to",
+                        "form five, five-card hands which are pitted head-to-head against one another.",
+                        "",
+                        "In Poker, the ranking of hands is as follows:",
+                        "",
+                        "1. Straight Flush  (Five consecutive, suited cards)",
+                        "2. Four of a Kind  (Four cards of equal rank)",
+                        "3. Full House  (Three of a Kind and One Pair)",
+                        "4. Flush   (Five suited cards)",
+                        "5. Straight    (Five cards of consecutive rank - Ace can be high or low)",
+                        "6. Three of a Kind (Three cards of equal rank)",
+                        "7. Two Pair    (Four cards, two each of two seperate, equal ranks)",
+                        "8. One Pair    (Two cards of equal rank)",
+                        "9. High Card   (The highest-ranked card in the hand, Ace high)"];
+            for(let i=0;i<textLines.length;i++){
+                ctx.fillText(textLines[i], 30, 40*i+50, 960);
+            }
+            break;
+        case 2:
+            drawScreen();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.fillRect(520, 450, 460, 130);
+            ctx.fillStyle = "Black";
+            ctx.textAlign = "left";
+            ctx.font = "20pt Arial";
+            textLines = ["On each turn, you will be dealt one",
+                        "card to this hand. These cards are",
+                        "not visible to your opponent."];
+            for(let i=0;i<textLines.length;i++){
+                ctx.fillText(textLines[i], 540, 40*i+480, 450);
+            }
+            break;
+        case 3:
+            drawScreen();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.fillRect(20, 310, 380, 260);
+            ctx.fillStyle = "Black";
+            ctx.textAlign = "left";
+            ctx.font = "20pt Arial";
+            textLines = ["To complete your turn, select", 
+                        "one card from your private",
+                        "hand and place it in one of",
+                        "these four numbered columns.",
+                        "Each hand can contain a",
+                        "maximum of five cards."];
+            for(let i=0;i<textLines.length;i++){
+                ctx.fillText(textLines[i], 30, 40*i+350, 360);
+            }
+            break;
+        case 4:
+            drawScreen();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.fillRect(500, 200, 470, 170);
+            ctx.fillStyle = "Black";
+            ctx.textAlign = "left";
+            ctx.font = "20pt Arial";
+            textLines = ["Each player may also burn one card",
+                        "per game. The burned card is",
+                        "placed face down here. Your burn",
+                        "card is placed on the right."];
+            for(let i=0;i<textLines.length;i++){
+                ctx.fillText(textLines[i], 520, 40*i+230, 440);
+            }
+            break;
+        case 5:
+            drawScreen();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.fillRect(20, 360, 380, 220);
+            ctx.fillRect(520, 450, 460, 130);
+            ctx.fillStyle = "Black";
+            ctx.textAlign = "left";
+            ctx.font = "20pt Arial";
+            textLines = ["Once completed, each hand",
+                        "is ranked head-to-head",
+                        "against thecorresponding",
+                        "opponent hand: 1 vs 1,",
+                        "2 vs 2, 3 vs 3 and 4 vs 4."];
+            for(let i=0;i<textLines.length;i++){
+                ctx.fillText(textLines[i], 30, 40*i+400, 360);
+            }
+            textLines = ["Your last five cards make up your",
+                        "fifth hand. At this time, both private",
+                        "hands are revealed and compared."];
+            for(let i=0;i<textLines.length;i++){
+                ctx.fillText(textLines[i], 540, 40*i+480, 450);
+            }
+            break;
+        case 6:
+            drawScreen();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.fillRect(10, 10, 980, 580);
+            ctx.fillStyle = "Black";
+            ctx.textAlign = "left";
+            ctx.font = "20pt Arial";
+            textLines = ["Classic Scoring:",
+                        "In classic scoring, each of the five hands is compared against its direct",
+                        "opponenet and the winner receives one point. Suits are all of equal rank, so",
+                        "ties are possible in both hands and games. The winner is the player with the",
+                        "most total points earned in that game.",
+                        "",
+                        "Vegas Scoring:",
+                        "Vegas scoring is based on betting money rather than earning points. Each",
+                        "of the four columned hands is worth a different amount of money, increasing",
+                        "in value from column one to column four, as indicated by the poker chip in",
+                        "each column. Suits are ranked so no ties are possible (from high to low:",
+                        "Spades, Hearts, Clubs, Diamonds). The winner of the fifth hand either doubles",
+                        "her winnings or halves his losses (the net total of the other four hands. The",
+                        "winner is the player who gains money, regardless of the number of hands won.",];
+            for(let i=0;i<textLines.length;i++){
+                ctx.fillText(textLines[i], 30, 40*i+50, 960);
+            }
+            break;
+        case 7:
+            drawScreen();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.fillRect(10, 10, 980, 580);
+            ctx.fillStyle = "Black";
+            ctx.textAlign = "center";
+            ctx.font = "20pt Arial";
+            textLines = ["About this game:",
+                        "",
+                        "",
+                        "Poker Chess v1.0.0",
+                        "Created by Joshua King Chapman",
+                        "JoshuaKingChapman@iCloud.com",
+                        "",
+                        "",
+                        "This game was tested in Google Chrome.", 
+                        "Results in other browswers may vary.",
+                        "",
+                        "",
+                        "Minimum window size: 1000 x 600"];
+            for(let i=0;i<textLines.length;i++){
+                ctx.fillText(textLines[i], 500, 40*i+70, 960);
+            }
+            break;
+        case 8:
+            tutorialPage = 1;
+            activeScreen = "Home";
+            drawHome();
+            break;
+    }
+}
+
+function drawChip(xMid, yMid, styleNo = 0){
+    let fillCols = ["White", "Red", "Green", "Blue", "Black"];
+    let trimCols = ["Purple", "Black", "White", "Yellow", "HotPink"];
+    let denoms = ["$100", "$250", "$500", "$1K", "2X"];
+    ctx.beginPath();
+    ctx.arc(xMid, yMid, 25, 0, Math.PI*2);
+    ctx.fillStyle = fillCols[styleNo];
+    ctx.fill();
+    ctx.strokeStyle = trimCols[styleNo];
+    ctx.lineWidth = 4;
+    for(let i=0;i<8;i++){
+        ctx.beginPath();
+        ctx.arc(xMid, yMid, 23, i*Math.PI/4-Math.PI/16, i*Math.PI/4+Math.PI/16);
+        ctx.stroke();
+    }
+    ctx.fillStyle = trimCols[styleNo];
+    ctx.textAlign = "center";
+    ctx.font = "bold 20pt Arial";
+    ctx.fillText(denoms[styleNo], xMid, yMid+10, 35);
+}
+
+function drawArrow(n, area){
+    let [xTip, yTip] = [880, 582];
+    ctx.clearRect(20, 581, 430, 19);
+    ctx.clearRect(859, 400, 42, 19);
+    switch(area){
+        case "Columns":
+            xTip = n * 100 + 60;
+            break;
+        case "Row":
+            xTip = n * 90 + 490;
+            ctx.clearRect(450, 581, 540, 19);
+            break;
+        case "Burn":
+            yTip = 401;
+            break;
+    }
+    ctx.beginPath();
+    ctx.moveTo(xTip, yTip);
+    ctx.lineTo(xTip - 20, yTip + 18);
+    ctx.lineTo(xTip, yTip + 9);
+    ctx.lineTo(xTip + 20, yTip + 18);
+    ctx.closePath();
+    ctx.fillStyle = "Yellow";
+    ctx.fill();
+}
+
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+//                                  GAME LOGIC
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+var gamePrefs = {backColor: "Blue", fourColor: true, vegas: false};
+var gameDeck = new deck(gamePrefs.backColor, gamePrefs.fourColor);
+var playerCards = [[], [], [], [], [], []];     //Columns 1-4, secret hand, burn
+var computerCards = [[], [], [], [], [], []];   //Same as above
+var activeScreen = "Home";
+var playerTurn = false;
+var runningScores = [0, 0, 0, 0, 0]; //Game W-L, Hand W-L, Vegas
+var firstClick = false; //For handling 2-click player move
+var selectedIndex = -1  //Selected card, if firstClick == true
+var handNotes = [];   //For keeping track of computer's strategy in each hand
+
+drawHome();
+/*let myFakeHand = [
+    new card(10, 3),
+    new card(7, 2),
+    new card(10, 0),
+    new card(1, 1),
+    new card(1, 3)
+]
+let yourFakeHand = [
+    new card(7, 2),
+    new card(7, 1),
+    new card(4, 0),
+    new card(3, 0),
+    new card(4, 3)
+]
+let tester = card.winningHand([card.hand(myFakeHand), card.hand(yourFakeHand)]);
+console.log(card.hand(myFakeHand));
+console.log(card.hand(yourFakeHand));
+console.log(tester);*/
+
+var cardCounter = {
+    usedCards: [],
+
+    remaining: {
+        suit    : [13, 13, 13, 13],
+        rank    : [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+    },
+
+    isUsed: (rank, suit) => {
+        for(let i=0;i<this.usedCards.length;i++){
+            if(this.usedCards[i].rank == rank && this.usedCards[i].suit == suit){
+                return true;
+            }
+        }
+        return false;
+    },
+
+    suitsInHand: (suit) => {
+        let suitCount = 0;
+        for(let i=0;i<computerCards[4].length;i++){
+            if(computerCards[4][i].suit == suit){
+                suitCount++;
+            }
+        }
+        return suitCount;
+    },
+
+    ranksInHand: (rank) => {
+        let rankCount = 0;
+        for(let i=0;i<computerCards[4].length;i++){
+            if(computerCards[4][i].rank == rank){
+                rankCount++;
+            }
+        }
+        return rankCount;
+    },
+
+    matchScore: (rank, suit) => {
+        return (cardCounter.remaining.suit[suit] + cardCounter.suitsInHand(suit) * 2) + (cardCounter.remaining.rank[rank] + (cardCounter.ranksInHand(rank) - 1) * 3) * 5 + rank * 2;
+    },  //Ranks card based on number of matches not known to be burned
+
+    bestCardInHand: () => {
+        let bestSoFar = [0, cardCounter.matchScore(computerCards[4][0].rank, computerCards[4][0].suit)];
+        for(let i=1;i<computerCards[4].length;i++){
+            let iScore = cardCounter.matchScore(computerCards[4][i].rank, computerCards[4][i].suit);
+            bestSoFar = iScore > bestSoFar[1] || (iScore == bestSoFar[1] && computerCards[4][i].rank > computerCards[4][bestSoFar[0]].rank) ? [i, iScore] :  bestSoFar; 
+        }
+        return bestSoFar[0];
+    },
+
+    worstCardInHand: () => {
+        let worstSoFar = 0;
+        for(let i=1; i<computerCards[4].length; i++){
+            if(cardCounter.matchScore(computerCards[4][i].rank, computerCards[4][i].suit) < cardCounter.matchScore(computerCards[4][worstSoFar].rank, computerCards[4][worstSoFar].suit)){
+                worstSoFar = i;
+            }
+        }
+        return worstSoFar;
+    }
+
+}
+
+function newGame(){
+    gameDeck = new deck(gamePrefs.backColor, gamePrefs.fourColor);
+    playerCards = [[], [], [], [], [], []];
+    computerCards = [[], [], [], [], [], []];
+    handNotes = ["Open", "Open", "Open", "Open"];
+    cardCounter.remaining = {
+        suit    : [13, 13, 13, 13],
+        rank    : [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+    },
+    playerCards[4] = gameDeck.deal(6);
+    computerCards[4] = gameDeck.deal(5);
+    console.log("Deal: " + computerCards[4].map(c =>c.fullName));
+    for(let i=0;i<5;i++){
+        playerCards[4][i].faceUp = true;
+        cardCounter.remaining.suit[computerCards[4][i].suit]--;
+        cardCounter.remaining.rank[computerCards[4][i].rank]--;
+    }
+    playerCards[4][5].faceUp = true;
+    playerTurn = true;
+    drawScreen();
+    activeScreen = "Game";
+}
+
+function clickHandler(e){
+    let x = e.offsetX;
+    let y = e.offsetY;
+    switch(activeScreen){
+        case "Home":
+            if(x > 350 && x < 650){
+                if(y > 300 && y < 350){
+                    //New Game
+                    newGame();
+                }else if(y > 375 && y < 425){
+                    //Settings
+                    drawSettings();
+                }else if(y > 450 && y < 500){
+                    //How to Play
+                    activeScreen = "Tutorial";
+                    drawTutorial();
+                }
+            }
+            break;
+        case "Settings":
+            if(x > 350 && x < 650){
+                if(y > 300 && y < 350){
+                    //fourColor
+                    nextSetting("fourColor");
+                    drawSettings();
+                }else if(y > 375 && y < 425){
+                    //backColor
+                    nextSetting("backColor");
+                    drawSettings();
+                }else if(y > 450 && y < 500){
+                    //vegas
+                    nextSetting("vegas");
+                    drawSettings();
+                }
+            }else if(x > 250 && x < 325 && y > 500 && y < 550){
+                //Back arrow
+                activeScreen = "Home";
+                drawHome();
+            }
+            break;
+        case "Tutorial":
+            drawTutorial();
+            break;
+        case "Game":
+            if(! playerTurn){
+                return;
+            }
+            if(x > 450 && x < 980 && y > 460 && y < 580){
+                //Selects card from secret hand to play
+                //Ignores firstClick, allowing for change of selection
+                selectedIndex = Math.floor((x - 450) / 90);
+                drawArrow(selectedIndex, "Row");
+                firstClick = true;
+                return;
+                }
+            if(firstClick){
+                //Validate move and complete turn
+                let targetColumn = -1;
+                if(x > 10 && x < 410 && y > 300){
+                    targetColumn = Math.floor((x - 10) / 100);
+                }else if(x > 840 && x < 980 && y > 240 && y < 380){
+                    targetColumn = 5;
+                }else{
+                    return; //Click out of bounds of all possible targets
+                }
+                if(playerFull(targetColumn)){
+                    alert("There is no room for more cards here. Please select somewhere else.");
+                }else{
+                    //Move is valid => execute
+                    if(targetColumn == 5){
+                        playerCards[4][selectedIndex].faceUp = false;
+                    }else{
+                        cardCounter.remaining.suit[playerCards[4][selectedIndex].suit]--;
+                        cardCounter.remaining.rank[playerCards[4][selectedIndex].rank]--;
+                        cardCounter.usedCards.push(playerCards[4][selectedIndex]);
+                    }
+                    playerCards[targetColumn].push(playerCards[4].splice(selectedIndex, 1)[0]);
+                    firstClick = false;
+                    playerTurn = false;
+                    if(! endGameCheck()){
+                        drawScreen();
+                        computerTurn();
+                    }
+                }
+            }
+            break;
+        case "Scorecard":
+            if(y < 530 || y > 580 || x <20 || x > 980){
+                return;
+            }
+            if(x < 320){
+                drawHome();
+            }else if(x > 680){
+                newGame();
+            }
+            break;
+    }
+}
+
+function mouseMoveHandler(e){
+    if(! (activeScreen == "Game" && playerTurn)){
+        return;
+    }
+    let x = e.offsetX;
+    let y = e.offsetY;
+    if(firstClick){
+        if(x > 10 && x < 410 && y > 300){
+            drawArrow(Math.floor((x - 10) / 100), "Columns");
+        }else if(x > 840 && x < 980 && y > 240 && y < 380){
+            drawArrow(0, "Burn");
+        }else if(!(x > 840 && x < 980 && y > 240 && y < 380)){
+            ctx.clearRect(860, 400, 40, 20);
+        }
+    }else if(x > 450 && x < 980 && y > 460 && y < 580){
+        drawArrow(Math.floor((x - 450) / 90), "Row");
+    }else if(playerCards[5].length && x > 840 && x < 980 && y > 240 && y < 380){
+        playerCards[5][0].faceUp = true;
+        drawScreen();
+    }else if(playerCards[5].length && playerCards[5][0].faceUp){
+        playerCards[5][0].faceUp = false;
+        drawScreen();
+    }
+}
+
+function playerFull(column){
+    if(column < 0 || column == 4 || column > 5){
+        return undefined;
+    }
+    return column < 4 ? playerCards[column].length == 5 : playerCards[5].length == 1;
+}
+
+function computerTurn(){
+    console.log("New Turn");
+    playerTurn = false;
+    computerCards[4].push(gameDeck.deal()[0]);
+    console.log("Dealt " + computerCards[4][5].fullName);
+    // 1: Improve superior hands
+    console.log("Step 1");
+    for(let i=3;i>=0;i--){   //Columned hand loop
+        switch(handNotes[i]){
+            case "Straight Flush":
+                console.log("Straight Flush");
+                let sfRanks = straightCards(computerCards[i]);
+                let sfSuit = computerCards[i][0].suit
+                for(let j=0;j<sfRanks.length;j++){
+                    for(let k=0;k<computerCards[4].length;k++){
+                        if(computerCards[4][k].suit == sfSuit && computerCards[4][k].rank == sfRanks[j]){
+                            //Wanted card found
+                            console.log("Match found");
+                            makeMove(k, i);
+                            return;
+                        }
+                    }
+                }
+                break;
+            case "Match Ranks":
+                console.log("Match Ranks");
+                let mRanks = computerCards[i].map(c => c.rank).sort(function(a, b){return b-a});
+                let rankCounts = [[mRanks[0], 1]];
+                let rc = 0;
+                mRanks.shift();
+                while(mRanks.length > 0){
+                    if(rankCounts[rc][0] == mRanks[0]){
+                        rankCounts[rc][1]++;
+                    }else{
+                        rc++;
+                        rankCounts.push(mRanks[0], 1);
+                    }
+                    mRanks.shift();
+                }
+                rankCounts.sort(function(a, b){return a[1] == b[1] ? b[0] - a[0] : b[1] - a[1]});
+                for(let j=0;j<rankCounts.length;j++){
+                    for(let k=0;k<computerCards[4].length;k++){
+                        if(computerCards[4][k].rank == rankCounts[j][0]){
+                            //Match found
+                            console.log("Match Found");
+                            makeMove(k, i);
+                            return;
+                        }
+                    }
+                }
+                break;
+        }
+    }
+    // 2: Improve inferior hands
+    console.log("Step 2");
+    for(let i=3;i>=0;i--){   //Columned hand loop
+        switch(handNotes[i]){
+            case "Straight":
+            console.log("Straight");
+                //Reuse code from straight flush logic
+                let sRanks = straightCards(computerCards[i]);
+                for(let j=0;j<sRanks.length;j++){
+                    for(let k=0;k<computerCards[4].length;k++){
+                        if(computerCards[4][k].rank == sRanks[j]){
+                            //Wanted card found
+                            console.log("Match Found");
+                            makeMove(k, i);
+                            return;
+                        }
+                    }
+                }
+                break;
+            case "Flush":
+                console.log("Match Found");
+                let highSuit = -1;
+                for(let j=0;j<computerCards[4].length;j++){
+                    if(computerCards[4][j].suit == computerCards[i][0].suit){
+                        highSuit = highSuit == -1 ? j : computerCards[4][j].rank > computerCards[4][highSuit].rank ? j : highSuit
+                    }
+                }
+                if(highSuit >= 0){
+                    //1 or more matches found => play highest ranked match
+                    console.log("Match Found");
+                    makeMove(highSuit, i);
+                    return;
+                }
+                break;
+        }
+    }
+    // 3: Match newly started hand with suited connector or rank pair
+    console.log("Step 3");
+    for(let i=3;i>=0;i--){   //Columned hand loop
+        if(handNotes[i] == "New"){
+            console.log("Highest new column found: " + String(i));
+            let mates = [];
+            let maxScore = [0, -1]; //[score, index]
+            for(let j=0;j<computerCards[4].length;j++){ //Secret hand loop
+                let ijScore = computerCards[i][0].suit == computerCards[4][j].suit && computerCards[4][j].rank - computerCards[i][0].rank == 1 ? 3 //Higher suited connector
+                    : computerCards[i][0].suit == computerCards[4][j].suit && (computerCards[i][0].rank - computerCards[4][j].rank == 1 || computerCards[i][0].rank - computerCards[4][j].rank == -12) ? 2  //Lower suited connector
+                    : computerCards[i][0].rank == computerCards[4][j].rank ? 1   //Paired rank
+                    : 0;   //Not a close match to first card of hand
+                mates.push(ijScore);
+                if(ijScore > maxScore[0]){
+                    maxScore = [ijScore, j];
+                }
+            }
+            if(maxScore[0] > 0){
+                handNotes[i] = maxScore[0] > 1 ? "Straight Flush" : "Match Ranks";
+                console.log("Match Found");
+                makeMove(maxScore[1], i);
+                return;
+            }
+        }
+    }
+    // 4: Downgrade highly specialized hands
+    console.log("Step 4");
+    for(let i=0;i<4;i++){ //Columned hand loop
+        if(handNotes[i] == "New" || (handNotes == "Match Ranks" && card.CountRanks(computerCards[i]) == 1)){
+            //Add best card to 1-rank hand, setting groundwork for full house
+            console.log("Match Found: Part A");
+            handNotes[i] = "Match Ranks";
+            makeMove(cardCounter.bestCardInHand(true), i);
+            return;
+        }else if(handNotes[i] == "Straight Flush"){
+            if(computerCards[i].length < 3){
+                for(let j=0;j<computerCards[4].length;j++){
+                    if(computerCards[4][j].rank == computerCards[i][0].rank || computerCards[4][j].rank == computerCards[i][computerCards[i].length-1].rank){
+                        //Convert to full house attempt by pairing a suited connector
+                        console.log("Match Found: Part B");
+                        handNotes[i] = "Match Ranks";
+                        makeMove(j, i);
+                        return;
+                    }
+                }
+            }
+            //Reuse code
+            if(computerCards[i].length < 4){
+                sfRanks = straightCards(computerCards[i], true);
+                for(let j=0;j<sfRanks.length;j++){
+                    for(let k=0;k<computerCards[4].length;k++){
+                        if(computerCards[4][k].suit == computerCards[i][0].suit && computerCards[4][k].rank == sfRanks[j]){
+                            //Play non-adjacent straight flush card for gutshot draw
+                            console.log("Match found: Part C");
+                            makeMove(k, i);
+                            return;
+                        }
+                    }
+                }
+            }
+            let suitedIndex = computerCards[4].map(c => c.suit).indexOf(computerCards[i][0].suit);
+            if(suitedIndex > -1 && cardCounter.remaining.suit[computerCards[i][0].suit] > 5 - computerCards[i].length){
+                //Convert to flush
+                handNotes[i] = "Flush";
+                console.log("Match Found: Part D");
+                makeMove(suitedIndex, i);
+                return;
+            }
+            //Reuse code from straight logic
+            sRanks = straightCards(computerCards[i]);
+            for(let j=0;j<sRanks.length;j++){
+                for(let k=0;k<computerCards[4].length;k++){
+                    if(computerCards[4][k].rank == sRanks[j]){
+                        //Convert to straight (adjacent)
+                        handNotes[i] = "Straight";
+                        console.log("Match Found: Part E");
+                        makeMove(k, i);
+                        return;
+                    }
+                }
+            }
+            sRanks = straightCards(computerCards[i], true);
+            for(let j=0;j<sRanks.length;j++){
+                for(let k=0;k<computerCards[4].length;k++){
+                    if(computerCards[4][k].rank == sRanks[j]){
+                        //Convert to straight (non-adjacent)
+                        handNotes[i] = "Straight";
+                        console.log("Match Found: Part E");
+                        makeMove(k, i);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    // 5: Begin new hand
+    //Search for 2+ cards that form a hand
+    console.log("Step 5");
+    let topCard = -1;
+    for(let i=0;i<4;i++){   //Columned hand loop
+        if(handNotes[i] == "Open"){
+            console.log("Open hand found at column " + String(i));
+            for(let j=0;j<computerCards[4].length-1;j++){ //Secret hand loop 1
+                for(let jj=j+1;jj<computerCards[4].length;jj++){ //Secret hand loop 2
+                    if(Math.abs(computerCards[4][j].rank - computerCards[4][jj].rank) < 2){
+                        let tc = computerCards[4][j].rank > computerCards[4][jj].rank ? j : jj;
+                        topCard = topCard == -1 ? tc : computerCards[4][tc].rank > computerCards[4][topCard].rank ? tc : topCard;
+                    }
+                }
+            }
+            if(topCard > -1){
+                //Optimal card found
+                console.log("Match Found");
+                handNotes[i] = "New";
+                makeMove(topCard, i);
+                return;
+            }else{
+                //Play card with fewest burned matches
+                console.log("Match not Found");
+                handNotes[i] = "New";
+                makeMove(cardCounter.bestCardInHand(), i);
+                return;
+            }
+        }
+    }
+    // 6: Burn card with least potential
+    console.log("Step 6");
+    let burnHand = handNotes.indexOf("Burn");
+    if(burnHand == -1 && computerCards[5].length == 0){
+        burnHand = 5;
+    }
+    if(burnHand > -1){
+        //Space to burn a card exists
+        console.log("Match Found");
+        if(burnHand <4){
+            handNotes[burnHand] = "Burn";
+        }
+        makeMove(cardCounter.worstCardInHand(), burnHand);
+        return;
+    }
+    // 7: Give up on worst hand and use it to burn worst card for secret hand
+    console.log("Step 7");
+    burnHand = -1;
+    for(let i=0;i<4;i++){
+        burnHand = (computerCards[i].length < 5 && (burnHand == -1 || computerCards[i].length < computerCards[burnHand].length)) ? i : burnHand;
+    }
+    handNotes[burnHand] = "Burn";
+    console.log("Burned column " + String(burnHand));
+    makeMove(cardCounter.worstCardInHand(), burnHand);
+    return;
+}
+
+function makeMove(iFrom, iTo){
+    if(iTo < 5){
+        computerCards[4][iFrom].faceUp = true;
+    }
+    cardCounter.remaining.suit[computerCards[4][iFrom].suit]--;
+    cardCounter.remaining.rank[computerCards[4][iFrom].rank]--;
+    cardCounter.usedCards.push(computerCards[4][iFrom]);
+    computerCards[iTo].push(computerCards[4].splice(iFrom, 1)[0]);
+    drawScreen();
+    if(computerCards[iTo].length == 5){
+        handNotes[iTo] = "Full"
+    }
+    console.log(handNotes);
+    if(! endGameCheck()){
+        playerTurn = true;
+        playerCards[4].push(gameDeck.deal()[0]);
+        playerCards[4][5].faceUp = true;
+        drawScreen();
+    }
+}
+
+function endGameCheck(){
+    if(gameDeck.cards.length > 0){
+        return false;
+    }else{
+        for(let i=0;i<5;i++){
+            computerCards[4][i].faceUp = true;
+        }
+        computerCards[5][0].faceUp = true;
+        playerCards[5][0].faceUp = true;
+        drawScreen();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.fillRect(10, 10, 980, 580);
+        ctx.fillStyle = "Black";
+        ctx.textAlign = "right";
+        ctx.font = "20pt Arial";
+        ctx.strokeStyle = "Cyan";
+        let textLines = [];
+        let gameScore = 0;
+        let vScores = [100, 250, 500, 1000];
+        for(let i=0;i<5;i++){
+            let jsSucks = [[], []];
+            jsSucks[0] = card.hand(computerCards[i]);
+            jsSucks[1] = card.hand(playerCards[i]);
+            let handResults = card.winningHand(jsSucks, gamePrefs.vegas);
+            console.log(handResults);
+            if(gamePrefs.vegas){
+                if(i < 4){
+                    textLines.push((handResults.player ? "You" : "The computer") + " won $" + vScores[i] + " on hand " + (i + 1) + " with " + (handResults.slangName || handResults.DescriptiveName || handResults.basicName) + (handResults.criticalDetail ? ", " + handResults.criticalDetail : ""));
+                    gameScore += (handResults.player ? 1 : -1) * vScores[i];
+                }else{
+                    textLines.push((handResults.player ? "You" : "The computer") + " won hand " + (i + 1) + " with " + (handResults.slangName || handResults.DescriptiveName || handResults.basicName) + (handResults.criticalDetail ? ", " + handResults.criticalDetail : ""));
+                    if((gameScore > 0 && handResults.player) || (gameScore < 0 && ! handResults.player)){
+                        gameScore *= 2;
+                    }else{
+                        gameScore /= 2;
+                    }
+                }
+                textLines.push((handResults.player ? "The computer" : "You") + " had " + handResults.allHandNames[handResults.player ? 0 : 1]);
+                runningScores[handResults.player ? 2 : 3]++;
+            }else{
+                textLines.push((handResults.player ? "You" : "The computer") + " won hand " + (i + 1) + " with " + (handResults.DescriptiveName || handResults.basicName) + (handResults.criticalDetail ? ", " + handResults.criticalDetail : ""));
+                textLines.push((handResults.player ? "The computer" : "You") + " had " + handResults.allHandNames[handResults.player ? 0 : 1]);
+                if(! handResults.tiePlayers){
+                    gameScore += handResults.player ? 1 : -1;
+                    runningScores[handResults.player ? 2 : 3]++;
+                }
+            }
+            ctx.strokeText(textLines[0], 980, i*60+180);
+            ctx.fillText(textLines[0], 980, i*60+180);
+            ctx.strokeText(textLines[1], 980, i*60+210);
+            ctx.fillText(textLines[1], 980, i*60+210);
+            textLines = [];
+        }
+        ctx.textAlign = "center";
+        ctx.font = "70pt Arial";
+        ctx.strokeText(gameScore > 0 ? "Congratulations!" : "Game Over", 500, 120);
+        ctx.fillText(gameScore > 0 ? "Congratulations!" : "Game Over", 500, 120);
+        runningScores[gameScore > 0 ? 0 : 1]++;
+        if(gamePrefs.vegas){
+            runningScores[4] += gameScore;
+        }
+        ctx.textAlign = "left";
+        ctx.font = "20pt Arial";
+        textLines = ["Your game record: " + runningScores[0] + "W - " + runningScores[1] + "L",
+                    "Your hand record: " + runningScores[2] + "W - " + runningScores[3] + "L",
+                    "Your Vegas winnings: $" + runningScores[4]];
+        for(let i=0;i<3;i++){
+            ctx.strokeText(textLines[i], 20, 30 * i + 240);
+            ctx.fillText(textLines[i], 20, 30 * i + 240);
+        }
+        ctx.fillStyle = "Red";
+        ctx.fillRect(20, 530, 300, 50);
+        ctx.fillStyle = "Green";
+        ctx.fillRect(680, 530, 300, 50);
+        ctx.fillStyle = "Yellow";
+        ctx.font = "25pt Comic Sans MS"
+        ctx.textAlign = "center";
+        ctx.fillText("Main Menu", 170, 565, 280);
+        ctx.fillText("Play Again", 830, 565, 280);
+        activeScreen = "Scorecard";
+        return true;
+    }
+}
+
+function nextSetting(prop){
+    let newVal = ""
+    switch(prop){
+        case "fourColor":
+            newVal = ! gamePrefs.fourColor;
+            break;
+        case "backColor":
+            let deckColors = ["Blue", "Cyan", "Grey", "Green", "Salmon", "Seagreen"];
+            newVal = gamePrefs.backColor == "Seagreen" ? "Blue" : deckColors[deckColors.indexOf(gamePrefs.backColor)+1];
+            break;
+        case "vegas":
+            newVal = ! gamePrefs.vegas
+            break;
+    }
+    gamePrefs[prop] = newVal;
+}
+
+function straightCards(currentCards, goWide = false){
+    if(! currentCards || ! currentCards.length || currentCards.length >= 5){
+        return [];
+    }
+    let buildCards = [];
+    let cRanks = currentCards.map(c => c.rank);
+    cRanks.sort(function(a, b){return b - a});
+    //Low ace check
+    if(cRanks[0] == 12 && oldRanks[1] < 4){
+        cRanks.shift();
+        cRanks.push(-1);
+    }
+    //Fill gaps first
+    let totalGaps = cRanks[0] + 1 - cRanks[cRanks.length] - cRanks.length;
+    if(totalGaps > 5 - cRanks.length){
+        return [];
+    }
+    let i = 0;
+    while(buildCards.length < totalGaps){
+        let g = cRanks[i];
+        while(g - cRanks[i + 1] > 1){
+            buildCards.push(g - 1);
+            g--;
+        }
+        i++;
+    }
+    // Decide whether to continue
+    if(buildCards.length > 0){
+        if(goWide){
+            goWide = false;
+        }else{
+            return buildCards;
+        }
+    }
+    //Expand high & low
+    for(i=0;i<2;i++){
+        if(cRanks[0] < 12){
+            buildCards.push(cRanks[0] + 1);
+            cRanks.unshift(cRanks[0] + 1);
+        }
+        if(cRanks[cRanks.length - 1] >= 0){
+            buildCards.push(cRanks[cRanks.length - 1] - 1);
+            cRanks.push(cRanks[cRanks.length - 1] - 1);
+        }
+        if(! goWide){
+            break;
+        }
+    }
+    if(buildCards[buildCards.length - 1] == -1){
+        buildCards[buildCards.length - 1] == 12;
+    }
+    return buildCards;
+}
+
+function testFill(){
+    for(let h=0;h<5;h++){
+        playerCards[h]= gameDeck.deal(5);
+        computerCards[h]= gameDeck.deal(5);
+    }
+    playerCards[5]=gameDeck.deal();
+    computerCards[5]=gameDeck.deal();
+}
+
+</script>
+
+</body>
+</html>
