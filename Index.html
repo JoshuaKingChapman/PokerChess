@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <!--Poker Chess v1.0.0 by JKC-->
+    <!--Poker Chess v1.0.1 by JKC-->
     <!--jkc@jkc.x10host.com-->
     <meta charset="utf-8" />
     <title>Poker Chess!</title>
@@ -248,11 +248,13 @@ class card{
         ctx.fill();
     }
 
+    //Takes array of 5 cards and returns array of integers for mathematical evaluation
+    //Result format: [hand class, leading card rank...trailing card suit]
     static hand(exactlyFiveCards = []){
         if(exactlyFiveCards === undefined || exactlyFiveCards.length != 5){
             return [0];
         }
-        let fiveCards = exactlyFiveCards.slice(0);
+        let fiveCards = exactlyFiveCards.slice(0);  //Clone array for sorting
         fiveCards.sort(function(a, b){return card.CountRanks(fiveCards, true)[a.rank] != card.CountRanks(fiveCards, true)[b.rank] ? card.CountRanks(fiveCards, true)[b.rank] - card.CountRanks(fiveCards, true)[a.rank] : a.rank != b.rank ? b.rank - a.rank : b.suit - a.suit});
         let handRanks = fiveCards.map(c => c.rank);
         let handSuits = fiveCards.map(c => c.suit);
@@ -260,37 +262,39 @@ class card{
         let flush = handSuits[0] == handSuits[4];
         handSuits = fiveCards.map(c => c.suit);
         let straight = true;
-        for(let i=1;i<4;i++){
+        for(let i=1;i<4;i++){   //Check last 4 cards to rule out straight
             if(handRanks[i] - handRanks[i + 1] != 1){
                 straight = false;
                 break;
             }
         }
-        let highCard = 0;
+        //Check first card for straight if not yet ruled out
         if(straight && ! (handRanks[0] - handRanks[1] == 1 || (handRanks[0] == 12 && handRanks[4] == 0))){
             straight = false;
-        }else if (handRanks[0] == 12 && handRanks[1] == 3){
+        }else if (handRanks[0] == 12 && handRanks[1] == 3){ //Low ace
             fiveCards.push(fiveCards.shift());
             handRanks = fiveCards.map(c => c.rank);
             handSuits = fiveCards.map(c => c.suit);
         }
         if(straight && flush){
-            return [9, handRanks[0], fiveCards[0].suit];
+            return [9, handRanks[0], fiveCards[0].suit];    //Straight flush
         }else if(flush){
-            return [6].concat(handRanks, fiveCards[0].suit);
+            return [6].concat(handRanks, fiveCards[0].suit);    //Flush
         }else if(straight){
-            return [5, fiveCards[0].rank].concat(handSuits);
+            return [5, fiveCards[0].rank].concat(handSuits);    //Straight
         }
         let rankObj = card.CountRanks(fiveCards, true);
         switch(rankObj[handRanks[0]]){
             case 4:
-                return [8, handRanks[0], handRanks[4], fiveCards[4].suit];
+                return [8, handRanks[0], handRanks[4], fiveCards[4].suit];  //Four of a kind
             case 3:
-                return rankObj[handRanks[3]] == 2 ? [7, handRanks[0], handRanks[3]].concat(handSuits) : [4, handRanks[0], handRanks[3], handRanks[4]].concat(handSuits);
+                return rankObj[handRanks[3]] == 2 ? [7, handRanks[0], handRanks[3]].concat(handSuits)   //Full house
+                : [4, handRanks[0], handRanks[3], handRanks[4]].concat(handSuits);  //Three of a kind
             case 2:
-                return rankObj[handRanks[2]] == 2 ? [3, handRanks[0], handRanks[2], handRanks[4]].concat(handSuits) : [2, handRanks[0], handRanks[2], handRanks[3], handRanks[4]].concat(handSuits);
+                return rankObj[handRanks[2]] == 2 ? [3, handRanks[0], handRanks[2], handRanks[4]].concat(handSuits)   //Two pair
+                : [2, handRanks[0], handRanks[2], handRanks[3], handRanks[4]].concat(handSuits);    //One pair
             case 1:
-                return [1].concat(handRanks).concat(handSuits);
+                return [1].concat(handRanks).concat(handSuits); //High card
         }
     }
 
@@ -303,29 +307,30 @@ class card{
         let tieCutoffs = [1, 6, 5, 4, 4, 2, 6, 3, 3, 2];
         let handArticles = ["an ", "a ", "", "", "", "a ", "a ", "a ", "", "a "];
         let vowelCards = [false, false, false, false, false, false, true, false, false, false, false, false, true];
-        let winningSequence = [];
+        let winningSequence = [];   //Equals the card.rank array of the winning hand, truncated to the critical detail
         let retObj = {player: 0, basicName: handNames[alllHands[0][0]]};
         for(let p=1;p<alllHands.length;p++){
-            if(alllHands[p][0] > alllHands[Number(retObj.player)][0]){
+            if(alllHands[p][0] > alllHands[Number(retObj.player)][0]){  //Checks for top-level win
                 retObj = {player: p, basicName: handNames[alllHands[p][0]]};
                 winningSequence = [alllHands[p][0]];
-            }else if(alllHands[p][0] == alllHands[Number(retObj.player)][0]){
+            }else if(alllHands[p][0] == alllHands[Number(retObj.player)][0]){   //Tiebreaker
                 let handIndex = 0;
-                while(alllHands[p][handIndex] == alllHands[Number(retObj.player)][handIndex]){
+                while(alllHands[p][handIndex] == alllHands[Number(retObj.player)][handIndex]){  //Deepens search until result is found
                     winningSequence.push(alllHands[p][handIndex]);
-                    if((rankSuits && handIndex == alllHands[p].length - 1) || handIndex == tieCutoffs[alllHands[p][0]]){
+                    if((rankSuits && handIndex == alllHands[p].length - 1) || handIndex == tieCutoffs[alllHands[p][0]]){    //Tie declared
                         retObj.tiePlayers = (retObj.tiePlayers || []) + [p];
                         break;
                     }
                     handIndex++;
                 }
-                if(alllHands[p][handIndex] > alllHands[Number(retObj.player)][handIndex]){
+                if(alllHands[p][handIndex] > alllHands[Number(retObj.player)][handIndex]){  //Tie broken
                     retObj.player = p;
                     retObj.basicName = handNames[alllHands[p][0]]
                 }
             }
         }
         let kickNum, rankBreak;
+        //Convert numerical values of winning hand to textual information
         switch(winningSequence[0]){
             case 1:     //High card
                 retObj.DescriptiveName = new card(alllHands[Number(retObj.player)][1], 0).rankName + " High";
@@ -379,14 +384,14 @@ class card{
                 rankBreak = 2;
                 break;
             case 9:     //Straight flush
-                retObj.DescriptiveName = alllHands[Number(retObj.player)][1] == 12 ? "a Royal Flush" : vowelCards[alllHands[Number(retObj.player)][0]] ? "an " : "a " + new card(alllHands[Number(retObj.player)][1], 0).rank + " High Straight Flush";
+                retObj.DescriptiveName = alllHands[Number(retObj.player)][1] == 12 ? "a Royal Flush" : vowelCards[alllHands[Number(retObj.player)][0]] ? "an " : "a " + new card(alllHands[Number(retObj.player)][1], 0).rankName + " High Straight Flush";
                 rankBreak = winningSequence.length; //No rank kickers for straight flushes
                 break;
         }
-        if(winningSequence.length > tieCutoffs[winningSequence[0]]){
+        if(winningSequence.length > tieCutoffs[winningSequence[0]]){    //Winner was decided by ranking suits
             kickNum = winningSequence.length - tieCutoffs[winningSequence[0]];
             retObj.criticalDetail = new card(0, alllHands[Number(retObj.player)][alllHands[Number(retObj.player)].length - 1]).suitName + card._ordinalNum(kickNum) + (winningSequence[0] == 6 || winningSequence[0] == 9 ? "s" : " Kicker");
-        }else if(winningSequence.length > rankBreak){
+        }else if(winningSequence.length > rankBreak){   //Winner was decided by the rank of a secondary card
             kickNum = winningSequence.length - rankBreak;
             retObj.criticalDetail = new card(alllHands[Number(retObj.player)][alllHands[Number(retObj.player)].length - 1], 0).rankName + card._ordinalNum(kickNum) + " Kicker";
         }
@@ -394,7 +399,7 @@ class card{
         return retObj;
     }
 
-    static pokerSort(){
+    static pokerSort(){ //Returns function to sort cards high-low based on 1) number of same-ranked cards in hand 2) rank 3)suit
         return function(a, b){return card.CountRanks(fiveCards, true)[a.rank] != card.CountRanks(fiveCards, true)[b.rank] ? card.CountRanks(fiveCards, true)[b.rank] - card.CountRanks(fiveCards, true)[a.rank] : a.rank != b.rank ? b.rank - a.rank : b.suit - a.suit};
     }
 
@@ -424,7 +429,7 @@ class card{
 }
 
 class deck{
-	constructor(backColor="blue", fourColor=true, faceUp=false){
+	constructor(backColor = "blue", fourColor = true, faceUp = false){
         this.cards = [];
         for(let s=0;s<4;s++){
         	for(let r=0;r<13;r++){
@@ -443,7 +448,7 @@ class deck{
     }
     
     deal(numCards=1){
-    	return this.cards.splice(0,numCards);
+    	return this.cards.splice(0, numCards);
     }
 }
 
@@ -825,7 +830,7 @@ function drawTutorial(){
     }
 }
 
-function drawChip(xMid, yMid, styleNo = 0){
+function drawChip(xMid, yMid, styleNo = 0){ //Draws poker chip for Vegas mode
     let fillCols = ["White", "Red", "Green", "Blue", "Black"];
     let trimCols = ["Purple", "Black", "White", "Yellow", "HotPink"];
     let denoms = ["$100", "$250", "$500", "$1K", "2X"];
@@ -846,7 +851,7 @@ function drawChip(xMid, yMid, styleNo = 0){
     ctx.fillText(denoms[styleNo], xMid, yMid+10, 35);
 }
 
-function drawArrow(n, area){
+function drawArrow(n, area){    //Draws arrow underneath card to clarify player action
     let [xTip, yTip] = [880, 582];
     ctx.clearRect(20, 581, 430, 19);
     ctx.clearRect(859, 400, 42, 19);
@@ -889,27 +894,9 @@ var firstClick = false; //For handling 2-click player move
 var selectedIndex = -1  //Selected card, if firstClick == true
 var handNotes = [];   //For keeping track of computer's strategy in each hand
 
-drawHome();
-/*let myFakeHand = [
-    new card(10, 3),
-    new card(7, 2),
-    new card(10, 0),
-    new card(1, 1),
-    new card(1, 3)
-]
-let yourFakeHand = [
-    new card(7, 2),
-    new card(7, 1),
-    new card(4, 0),
-    new card(3, 0),
-    new card(4, 3)
-]
-let tester = card.winningHand([card.hand(myFakeHand), card.hand(yourFakeHand)]);
-console.log(card.hand(myFakeHand));
-console.log(card.hand(yourFakeHand));
-console.log(tester);*/
+drawHome(); //The entire script
 
-var cardCounter = {
+var cardCounter = { //Tracks played cards to maximize computer play
     usedCards: [],
 
     remaining: {
@@ -971,7 +958,7 @@ var cardCounter = {
 
 }
 
-function newGame(){
+function newGame(){ //Resets screen and variables for repeated play
     gameDeck = new deck(gamePrefs.backColor, gamePrefs.fourColor);
     playerCards = [[], [], [], [], [], []];
     computerCards = [[], [], [], [], [], []];
@@ -994,7 +981,7 @@ function newGame(){
     activeScreen = "Game";
 }
 
-function clickHandler(e){
+function clickHandler(e){   //Mouse is used to navigate menus and complete turns
     let x = e.offsetX;
     let y = e.offsetY;
     switch(activeScreen){
@@ -1093,7 +1080,7 @@ function clickHandler(e){
     }
 }
 
-function mouseMoveHandler(e){
+function mouseMoveHandler(e){   //Used to draw & clear arrows that indicate to player what next click will do
     if(! (activeScreen == "Game" && playerTurn)){
         return;
     }
@@ -1118,255 +1105,297 @@ function mouseMoveHandler(e){
     }
 }
 
-function playerFull(column){
+function playerFull(column){    //Validates attempted player move
     if(column < 0 || column == 4 || column > 5){
         return undefined;
     }
     return column < 4 ? playerCards[column].length == 5 : playerCards[5].length == 1;
 }
 
-function computerTurn(){
+function computerTurn(){    //Plays a card for the
     console.log("New Turn");
     playerTurn = false;
     computerCards[4].push(gameDeck.deal()[0]);
     console.log("Dealt " + computerCards[4][5].fullName);
     // 1: Improve superior hands
     console.log("Step 1");
-    for(let i=3;i>=0;i--){   //Columned hand loop
-        switch(handNotes[i]){
-            case "Straight Flush":
-                console.log("Straight Flush");
-                let sfRanks = straightCards(computerCards[i]);
-                let sfSuit = computerCards[i][0].suit
-                for(let j=0;j<sfRanks.length;j++){
-                    for(let k=0;k<computerCards[4].length;k++){
-                        if(computerCards[4][k].suit == sfSuit && computerCards[4][k].rank == sfRanks[j]){
-                            //Wanted card found
-                            console.log("Match found");
-                            makeMove(k, i);
-                            return;
+    try{
+        for(let i=3;i>=0;i--){   //Columned hand loop
+            switch(handNotes[i]){
+                case "Straight Flush":
+                    console.log("Straight Flush");
+                    let sfRanks = straightCards(computerCards[i]);
+                    let sfSuit = computerCards[i][0].suit
+                    for(let j=0;j<sfRanks.length;j++){
+                        for(let k=0;k<computerCards[4].length;k++){
+                            if(computerCards[4][k].suit == sfSuit && computerCards[4][k].rank == sfRanks[j]){
+                                //Wanted card found
+                                console.log("Match found");
+                                makeMove(k, i);
+                                return;
+                            }
                         }
                     }
-                }
-                break;
-            case "Match Ranks":
-                console.log("Match Ranks");
-                let mRanks = computerCards[i].map(c => c.rank).sort(function(a, b){return b-a});
-                let rankCounts = [[mRanks[0], 1]];
-                let rc = 0;
-                mRanks.shift();
-                while(mRanks.length > 0){
-                    if(rankCounts[rc][0] == mRanks[0]){
-                        rankCounts[rc][1]++;
-                    }else{
-                        rc++;
-                        rankCounts.push(mRanks[0], 1);
-                    }
+                    break;
+                case "Match Ranks":
+                    console.log("Match Ranks");
+                    let mRanks = computerCards[i].map(c => c.rank).sort(function(a, b){return b-a});
+                    let rankCounts = [[mRanks[0], 1]];
+                    let rc = 0;
                     mRanks.shift();
-                }
-                rankCounts.sort(function(a, b){return a[1] == b[1] ? b[0] - a[0] : b[1] - a[1]});
-                for(let j=0;j<rankCounts.length;j++){
-                    for(let k=0;k<computerCards[4].length;k++){
-                        if(computerCards[4][k].rank == rankCounts[j][0]){
-                            //Match found
-                            console.log("Match Found");
-                            makeMove(k, i);
-                            return;
+                    while(mRanks.length > 0){
+                        if(rankCounts[rc][0] == mRanks[0]){
+                            rankCounts[rc][1]++;
+                        }else{
+                            rc++;
+                            rankCounts.push(mRanks[0], 1);
+                        }
+                        mRanks.shift();
+                    }
+                    rankCounts.sort(function(a, b){return a[1] == b[1] ? b[0] - a[0] : b[1] - a[1]});
+                    for(let j=0;j<rankCounts.length;j++){
+                        for(let k=0;k<computerCards[4].length;k++){
+                            if(computerCards[4][k].rank == rankCounts[j][0]){
+                                //Match found
+                                console.log("Match Found");
+                                makeMove(k, i);
+                                return;
+                            }
                         }
                     }
-                }
-                break;
+                    break;
+            }
         }
+    }catch(err){
+        console.log("ERROR: " + err.message);
     }
     // 2: Improve inferior hands
     console.log("Step 2");
-    for(let i=3;i>=0;i--){   //Columned hand loop
-        switch(handNotes[i]){
-            case "Straight":
-            console.log("Straight");
-                //Reuse code from straight flush logic
-                let sRanks = straightCards(computerCards[i]);
-                for(let j=0;j<sRanks.length;j++){
-                    for(let k=0;k<computerCards[4].length;k++){
-                        if(computerCards[4][k].rank == sRanks[j]){
-                            //Wanted card found
-                            console.log("Match Found");
-                            makeMove(k, i);
-                            return;
+    try{
+        for(let i=3;i>=0;i--){   //Columned hand loop
+            switch(handNotes[i]){
+                case "Straight":
+                console.log("Straight");
+                    //Reuse code from straight flush logic
+                    let sRanks = straightCards(computerCards[i]);
+                    for(let j=0;j<sRanks.length;j++){
+                        for(let k=0;k<computerCards[4].length;k++){
+                            if(computerCards[4][k].rank == sRanks[j]){
+                                //Wanted card found
+                                console.log("Match Found");
+                                makeMove(k, i);
+                                return;
+                            }
                         }
                     }
-                }
-                break;
-            case "Flush":
-                console.log("Match Found");
-                let highSuit = -1;
-                for(let j=0;j<computerCards[4].length;j++){
-                    if(computerCards[4][j].suit == computerCards[i][0].suit){
-                        highSuit = highSuit == -1 ? j : computerCards[4][j].rank > computerCards[4][highSuit].rank ? j : highSuit
-                    }
-                }
-                if(highSuit >= 0){
-                    //1 or more matches found => play highest ranked match
+                    break;
+                case "Flush":
                     console.log("Match Found");
-                    makeMove(highSuit, i);
-                    return;
-                }
-                break;
+                    let highSuit = -1;
+                    for(let j=0;j<computerCards[4].length;j++){
+                        if(computerCards[4][j].suit == computerCards[i][0].suit){
+                            highSuit = highSuit == -1 ? j : computerCards[4][j].rank > computerCards[4][highSuit].rank ? j : highSuit
+                        }
+                    }
+                    if(highSuit >= 0){
+                        //1 or more matches found => play highest ranked match
+                        console.log("Match Found");
+                        makeMove(highSuit, i);
+                        return;
+                    }
+                    break;
+            }
         }
+    }catch(err){
+        console.log("ERROR: " + err.message);
     }
     // 3: Match newly started hand with suited connector or rank pair
     console.log("Step 3");
-    for(let i=3;i>=0;i--){   //Columned hand loop
-        if(handNotes[i] == "New"){
-            console.log("Highest new column found: " + String(i));
-            let mates = [];
-            let maxScore = [0, -1]; //[score, index]
-            for(let j=0;j<computerCards[4].length;j++){ //Secret hand loop
-                let ijScore = computerCards[i][0].suit == computerCards[4][j].suit && computerCards[4][j].rank - computerCards[i][0].rank == 1 ? 3 //Higher suited connector
-                    : computerCards[i][0].suit == computerCards[4][j].suit && (computerCards[i][0].rank - computerCards[4][j].rank == 1 || computerCards[i][0].rank - computerCards[4][j].rank == -12) ? 2  //Lower suited connector
-                    : computerCards[i][0].rank == computerCards[4][j].rank ? 1   //Paired rank
-                    : 0;   //Not a close match to first card of hand
-                mates.push(ijScore);
-                if(ijScore > maxScore[0]){
-                    maxScore = [ijScore, j];
+    try{
+        for(let i=3;i>=0;i--){   //Columned hand loop
+            if(handNotes[i] == "New"){
+                console.log("Highest new column found: " + String(i));
+                let mates = [];
+                let maxScore = [0, -1]; //[score, index]
+                for(let j=0;j<computerCards[4].length;j++){ //Secret hand loop
+                    let ijScore = computerCards[i][0].suit == computerCards[4][j].suit && computerCards[4][j].rank - computerCards[i][0].rank == 1 ? 3 //Higher suited connector
+                        : computerCards[i][0].suit == computerCards[4][j].suit && (computerCards[i][0].rank - computerCards[4][j].rank == 1 || computerCards[i][0].rank - computerCards[4][j].rank == -12) ? 2  //Lower suited connector
+                        : computerCards[i][0].rank == computerCards[4][j].rank ? 1   //Paired rank
+                        : 0;   //Not a close match to first card of hand
+                    mates.push(ijScore);
+                    if(ijScore > maxScore[0]){
+                        maxScore = [ijScore, j];
+                    }
+                }
+                if(maxScore[0] > 0){
+                    handNotes[i] = maxScore[0] > 1 ? "Straight Flush" : "Match Ranks";
+                    console.log("Match Found");
+                    makeMove(maxScore[1], i);
+                    return;
                 }
             }
-            if(maxScore[0] > 0){
-                handNotes[i] = maxScore[0] > 1 ? "Straight Flush" : "Match Ranks";
-                console.log("Match Found");
-                makeMove(maxScore[1], i);
-                return;
-            }
         }
+    }catch(err){
+        console.log("ERROR: " + err.message);
     }
     // 4: Downgrade highly specialized hands
     console.log("Step 4");
-    for(let i=0;i<4;i++){ //Columned hand loop
-        if(handNotes[i] == "New" || (handNotes == "Match Ranks" && card.CountRanks(computerCards[i]) == 1)){
-            //Add best card to 1-rank hand, setting groundwork for full house
-            console.log("Match Found: Part A");
-            handNotes[i] = "Match Ranks";
-            makeMove(cardCounter.bestCardInHand(true), i);
-            return;
-        }else if(handNotes[i] == "Straight Flush"){
-            if(computerCards[i].length < 3){
-                for(let j=0;j<computerCards[4].length;j++){
-                    if(computerCards[4][j].rank == computerCards[i][0].rank || computerCards[4][j].rank == computerCards[i][computerCards[i].length-1].rank){
-                        //Convert to full house attempt by pairing a suited connector
-                        console.log("Match Found: Part B");
-                        handNotes[i] = "Match Ranks";
-                        makeMove(j, i);
-                        return;
+    try{
+        for(let i=0;i<4;i++){ //Columned hand loop
+            if(handNotes[i] == "New" || (handNotes == "Match Ranks" && card.CountRanks(computerCards[i]) == 1)){
+                //Add best card to 1-rank hand, setting groundwork for full house
+                console.log("Match Found: Part A");
+                handNotes[i] = "Match Ranks";
+                makeMove(cardCounter.bestCardInHand(true), i);
+                return;
+            }else if(handNotes[i] == "Straight Flush"){
+                if(computerCards[i].length < 3){
+                    for(let j=0;j<computerCards[4].length;j++){
+                        if(computerCards[4][j].rank == computerCards[i][0].rank || computerCards[4][j].rank == computerCards[i][computerCards[i].length-1].rank){
+                            //Convert to full house attempt by pairing a suited connector
+                            console.log("Match Found: Part B");
+                            handNotes[i] = "Match Ranks";
+                            makeMove(j, i);
+                            return;
+                        }
                     }
                 }
-            }
-            //Reuse code
-            if(computerCards[i].length < 4){
-                sfRanks = straightCards(computerCards[i], true);
-                for(let j=0;j<sfRanks.length;j++){
+                //Reuse code
+                if(computerCards[i].length < 4){
+                    sfRanks = straightCards(computerCards[i], true);
+                    for(let j=0;j<sfRanks.length;j++){
+                        for(let k=0;k<computerCards[4].length;k++){
+                            if(computerCards[4][k].suit == computerCards[i][0].suit && computerCards[4][k].rank == sfRanks[j]){
+                                //Play non-adjacent straight flush card for gutshot draw
+                                console.log("Match found: Part C");
+                                makeMove(k, i);
+                                return;
+                            }
+                        }
+                    }
+                }
+                let suitedIndex = computerCards[4].map(c => c.suit).indexOf(computerCards[i][0].suit);
+                if(suitedIndex > -1 && cardCounter.remaining.suit[computerCards[i][0].suit] > 5 - computerCards[i].length){
+                    //Convert to flush
+                    handNotes[i] = "Flush";
+                    console.log("Match Found: Part D");
+                    makeMove(suitedIndex, i);
+                    return;
+                }
+                //Reuse code from straight logic
+                sRanks = straightCards(computerCards[i]);
+                for(let j=0;j<sRanks.length;j++){
                     for(let k=0;k<computerCards[4].length;k++){
-                        if(computerCards[4][k].suit == computerCards[i][0].suit && computerCards[4][k].rank == sfRanks[j]){
-                            //Play non-adjacent straight flush card for gutshot draw
-                            console.log("Match found: Part C");
+                        if(computerCards[4][k].rank == sRanks[j]){
+                            //Convert to straight (adjacent)
+                            handNotes[i] = "Straight";
+                            console.log("Match Found: Part E");
+                            makeMove(k, i);
+                            return;
+                        }
+                    }
+                }
+                sRanks = straightCards(computerCards[i], true);
+                for(let j=0;j<sRanks.length;j++){
+                    for(let k=0;k<computerCards[4].length;k++){
+                        if(computerCards[4][k].rank == sRanks[j]){
+                            //Convert to straight (non-adjacent)
+                            handNotes[i] = "Straight";
+                            console.log("Match Found: Part E");
                             makeMove(k, i);
                             return;
                         }
                     }
                 }
             }
-            let suitedIndex = computerCards[4].map(c => c.suit).indexOf(computerCards[i][0].suit);
-            if(suitedIndex > -1 && cardCounter.remaining.suit[computerCards[i][0].suit] > 5 - computerCards[i].length){
-                //Convert to flush
-                handNotes[i] = "Flush";
-                console.log("Match Found: Part D");
-                makeMove(suitedIndex, i);
-                return;
-            }
-            //Reuse code from straight logic
-            sRanks = straightCards(computerCards[i]);
-            for(let j=0;j<sRanks.length;j++){
-                for(let k=0;k<computerCards[4].length;k++){
-                    if(computerCards[4][k].rank == sRanks[j]){
-                        //Convert to straight (adjacent)
-                        handNotes[i] = "Straight";
-                        console.log("Match Found: Part E");
-                        makeMove(k, i);
-                        return;
-                    }
-                }
-            }
-            sRanks = straightCards(computerCards[i], true);
-            for(let j=0;j<sRanks.length;j++){
-                for(let k=0;k<computerCards[4].length;k++){
-                    if(computerCards[4][k].rank == sRanks[j]){
-                        //Convert to straight (non-adjacent)
-                        handNotes[i] = "Straight";
-                        console.log("Match Found: Part E");
-                        makeMove(k, i);
-                        return;
-                    }
-                }
-            }
         }
+    }catch(err){
+        console.log("ERROR: " + err.message);
     }
     // 5: Begin new hand
     //Search for 2+ cards that form a hand
     console.log("Step 5");
-    let topCard = -1;
-    for(let i=0;i<4;i++){   //Columned hand loop
-        if(handNotes[i] == "Open"){
-            console.log("Open hand found at column " + String(i));
-            for(let j=0;j<computerCards[4].length-1;j++){ //Secret hand loop 1
-                for(let jj=j+1;jj<computerCards[4].length;jj++){ //Secret hand loop 2
-                    if(Math.abs(computerCards[4][j].rank - computerCards[4][jj].rank) < 2){
-                        let tc = computerCards[4][j].rank > computerCards[4][jj].rank ? j : jj;
-                        topCard = topCard == -1 ? tc : computerCards[4][tc].rank > computerCards[4][topCard].rank ? tc : topCard;
+    try{
+        let topCard = -1;
+        for(let i=0;i<4;i++){   //Columned hand loop
+            if(handNotes[i] == "Open"){
+                console.log("Open hand found at column " + String(i));
+                for(let j=0;j<computerCards[4].length-1;j++){ //Secret hand loop 1
+                    for(let jj=j+1;jj<computerCards[4].length;jj++){ //Secret hand loop 2
+                        if(Math.abs(computerCards[4][j].rank - computerCards[4][jj].rank) < 2){
+                            let tc = computerCards[4][j].rank > computerCards[4][jj].rank ? j : jj;
+                            topCard = topCard == -1 ? tc : computerCards[4][tc].rank > computerCards[4][topCard].rank ? tc : topCard;
+                        }
                     }
                 }
-            }
-            if(topCard > -1){
-                //Optimal card found
-                console.log("Match Found");
-                handNotes[i] = "New";
-                makeMove(topCard, i);
-                return;
-            }else{
-                //Play card with fewest burned matches
-                console.log("Match not Found");
-                handNotes[i] = "New";
-                makeMove(cardCounter.bestCardInHand(), i);
-                return;
+                if(topCard > -1){
+                    //Optimal card found
+                    console.log("Match Found");
+                    handNotes[i] = "New";
+                    makeMove(topCard, i);
+                    return;
+                }else{
+                    //Play card with fewest burned matches
+                    console.log("Match not Found");
+                    handNotes[i] = "New";
+                    makeMove(cardCounter.bestCardInHand(), i);
+                    return;
+                }
             }
         }
+    }catch(err){
+        console.log("ERROR: " + err.message);
     }
     // 6: Burn card with least potential
     console.log("Step 6");
-    let burnHand = handNotes.indexOf("Burn");
-    if(burnHand == -1 && computerCards[5].length == 0){
-        burnHand = 5;
-    }
-    if(burnHand > -1){
-        //Space to burn a card exists
-        console.log("Match Found");
-        if(burnHand <4){
-            handNotes[burnHand] = "Burn";
+    try{
+        let burnHand = handNotes.indexOf("Burn");
+        if(burnHand == -1 && computerCards[5].length == 0){
+            burnHand = 5;
         }
-        makeMove(cardCounter.worstCardInHand(), burnHand);
-        return;
+        if(burnHand > -1){
+            //Space to burn a card exists
+            console.log("Match Found");
+            if(burnHand <4){
+                handNotes[burnHand] = "Burn";
+            }
+            makeMove(cardCounter.worstCardInHand(), burnHand);
+            return;
+        }
+    }catch(err){
+        console.log("ERROR: " + err.message);
     }
     // 7: Give up on worst hand and use it to burn worst card for secret hand
     console.log("Step 7");
-    burnHand = -1;
-    for(let i=0;i<4;i++){
-        burnHand = (computerCards[i].length < 5 && (burnHand == -1 || computerCards[i].length < computerCards[burnHand].length)) ? i : burnHand;
+    try{
+        burnHand = -1;
+        for(let i=0;i<4;i++){
+            burnHand = (computerCards[i].length < 5 && (burnHand == -1 || computerCards[i].length < computerCards[burnHand].length)) ? i : burnHand;
+        }
+        handNotes[burnHand] = "Burn";
+        console.log("Burned column " + String(burnHand));
+        makeMove(cardCounter.worstCardInHand(), burnHand);
+        return;
+    }catch(err){
+        console.log("ERROR: " + err.message);
+        //Last ditch effort. Burn to any open column
+        for(burnHand=0;burnHand<4;burnHand++){
+            if(computerCards[burnHand].length < 5){
+                makeMove(cardCounter.worstCardInHand(), burnHand);
+                return;
+            }
+        }
+        if(computerCards[5].length < 1){
+            makeMove(cardCounter.worstCardInHand(), 5);
+            return;
+        }
+        //All efforts have failed; abandon game
+        alert("We're sorry, this game is unable to continue. Please try again.");
+        drawHome;
     }
-    handNotes[burnHand] = "Burn";
-    console.log("Burned column " + String(burnHand));
-    makeMove(cardCounter.worstCardInHand(), burnHand);
-    return;
 }
 
-function makeMove(iFrom, iTo){
+function makeMove(iFrom, iTo){  //Plays card for computer
     if(iTo < 5){
         computerCards[4][iFrom].faceUp = true;
     }
@@ -1387,7 +1416,7 @@ function makeMove(iFrom, iTo){
     }
 }
 
-function endGameCheck(){
+function endGameCheck(){    //Determines game over status & displays scorecard if so
     if(gameDeck.cards.length > 0){
         return false;
     }else{
@@ -1471,7 +1500,7 @@ function endGameCheck(){
     }
 }
 
-function nextSetting(prop){
+function nextSetting(prop){ //Cycles through game settings
     let newVal = ""
     switch(prop){
         case "fourColor":
@@ -1488,6 +1517,8 @@ function nextSetting(prop){
     gamePrefs[prop] = newVal;
 }
 
+//Returns array of immediately needed ranks to build a straight
+//If goWide is true, expands array to include "gutshot" values
 function straightCards(currentCards, goWide = false){
     if(! currentCards || ! currentCards.length || currentCards.length >= 5){
         return [];
@@ -1542,7 +1573,7 @@ function straightCards(currentCards, goWide = false){
     return buildCards;
 }
 
-function testFill(){
+function testFill(){    //Used for debugging
     for(let h=0;h<5;h++){
         playerCards[h]= gameDeck.deal(5);
         computerCards[h]= gameDeck.deal(5);
